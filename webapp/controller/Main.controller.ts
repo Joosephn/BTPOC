@@ -1,5 +1,6 @@
 import BaseController from "./BaseController";
 import JSONModel from "sap/ui/model/json/JSONModel";
+import ODataModel from "sap/ui/model/odata/v2/ODataModel";
 import PDFViewer from "sap/m/PDFViewer";
 import Button, { Button$PressEvent } from "sap/m/Button";
 import Dialog from "sap/m/Dialog";
@@ -20,15 +21,17 @@ interface DocumentItem {
 	url: string;
 }
 
-const mockDocuments: DocumentItem[] = [
-	{ id: "1", name: "Payslip - January 2026", description: "Monthly payslip", date: "31 Jan 2026", type: "payslip", url: "https://www.africau.edu/images/default/sample.pdf" },
-	{ id: "2", name: "Payslip - February 2026", description: "Monthly payslip", date: "28 Feb 2026", type: "payslip", url: "https://www.africau.edu/images/default/sample.pdf" },
-	{ id: "3", name: "Payslip - March 2026", description: "Monthly payslip", date: "31 Mar 2026", type: "payslip", url: "https://www.africau.edu/images/default/sample.pdf" },
-	{ id: "4", name: "Employment Contract", description: "Standard employment agreement", date: "01 Mar 2025", type: "contract", url: "https://www.africau.edu/images/default/sample.pdf" },
-	{ id: "5", name: "NDA Agreement", description: "Non-disclosure agreement", date: "15 Mar 2025", type: "contract", url: "https://www.africau.edu/images/default/sample.pdf" },
-	{ id: "6", name: "myFlex - Q1 2026", description: "Flexible benefits statement", date: "31 Mar 2026", type: "myflex", url: "https://www.africau.edu/images/default/sample.pdf" },
-	{ id: "7", name: "myFlex - Q4 2025", description: "Flexible benefits statement", date: "31 Dec 2025", type: "myflex", url: "https://www.africau.edu/images/default/sample.pdf" }
-];
+// SuccessFactors MDF entity: cust_EmployeeDocument
+// Fields must match the MDF object definition in SF Admin Center
+interface SFDocumentEntity {
+	externalCode: string;
+	externalName_defaultValue: string;
+	cust_description: string;
+	startDate: string;            // OData v2 DateTime: /Date(timestamp)/
+	cust_documentType: string;    // Enum: "payslip" | "contract" | "myflex"
+	cust_documentUrl: string;
+	userId: string;
+}
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
@@ -44,15 +47,51 @@ export default class Main extends BaseController {
 	private _sActiveTab = "payslip";
 
 	public onInit(): void {
-		const oModel = new JSONModel({
-			documents: mockDocuments,
-			filteredDocuments: mockDocuments.filter((d: DocumentItem) => d.type === "payslip")
-		});
-		this.getView()?.setModel(oModel, "documents");
+		const oDocModel = new JSONModel({ documents: [], filteredDocuments: [], busy: false });
+		this.getView()?.setModel(oDocModel, "documents");
 
 		void this.getResourceBundle().then(bundle => {
 			this._oBundle = bundle;
 		});
+
+		this._loadDocuments();
+	}
+
+	private _getSFModel(): ODataModel {
+		return this.getOwnerComponent().getModel("sfsf") as ODataModel;
+	}
+
+	private _loadDocuments(): void {
+		const oDocModel = this.getView()!.getModel("documents") as JSONModel;
+		oDocModel.setProperty("/busy", true);
+
+		this._getSFModel().read("/cust_EmployeeDocument", {
+			success: (oData: { results: SFDocumentEntity[] }) => {
+				const docs: DocumentItem[] = oData.results.map(e => ({
+					id: e.externalCode,
+					name: e.externalName_defaultValue,
+					description: e.cust_description,
+					date: this._formatSFDate(e.startDate),
+					type: e.cust_documentType,
+					url: e.cust_documentUrl
+				}));
+				oDocModel.setProperty("/documents", docs);
+				oDocModel.setProperty("/busy", false);
+				this._filterDocuments();
+			},
+			error: () => {
+				oDocModel.setProperty("/busy", false);
+				MessageToast.show(this._oBundle?.getText("loadError") ?? "Failed to load documents.");
+			}
+		});
+	}
+
+	// SF OData v2 returns DateTime as /Date(milliseconds)/
+	private _formatSFDate(sDate: string): string {
+		const match = /\/Date\((\d+)\)\//.exec(sDate);
+		if (!match) return sDate;
+		const d = new Date(Number(match[1]));
+		return `${String(d.getDate()).padStart(2, "0")} ${MONTHS[d.getMonth()]} ${d.getFullYear()}`;
 	}
 
 	public onTabSelect(oEvent: IconTabBar$SelectEvent): void {
@@ -109,7 +148,7 @@ export default class Main extends BaseController {
 	}
 
 	public onFileChange(oEvent: FileUploader$ChangeEvent): void {
-		const files = oEvent.getParameter("files") as FileList;
+		const files = oEvent.getParameter("files") as unknown as FileList;
 		if (files?.length > 0) {
 			this._oSelectedFile = files[0];
 			const sName = files[0].name.replace(/\.pdf$/i, "");
@@ -118,14 +157,14 @@ export default class Main extends BaseController {
 	}
 
 	public onUploadConfirm(): void {
-		const oModel = this.getView()!.getModel("uploadDialog") as JSONModel;
-		oModel.setProperty("/docNameState", "None");
+		const oDialogModel = this.getView()!.getModel("uploadDialog") as JSONModel;
+		oDialogModel.setProperty("/docNameState", "None");
 
-		const sDocName = (oModel.getProperty("/docName") as string).trim();
+		const sDocName = (oDialogModel.getProperty("/docName") as string).trim();
 		let bValid = true;
 
 		if (!sDocName) {
-			oModel.setProperty("/docNameState", "Error");
+			oDialogModel.setProperty("/docNameState", "Error");
 			bValid = false;
 		}
 
@@ -134,31 +173,28 @@ export default class Main extends BaseController {
 			bValid = false;
 		}
 
-		if (!bValid) {
-			return;
-		}
+		if (!bValid) return;
 
-		const sUrl = URL.createObjectURL(this._oSelectedFile!);
-		const oDocsModel = this.getView()!.getModel("documents") as JSONModel;
-		const aDocuments = [...(oDocsModel.getProperty("/documents") as DocumentItem[])];
+		const sDescription = this._sActiveTab.charAt(0).toUpperCase() + this._sActiveTab.slice(1);
 
-		const today = new Date();
-		const sDate = `${String(today.getDate()).padStart(2, "0")} ${MONTHS[today.getMonth()]} ${today.getFullYear()}`;
-
-		aDocuments.push({
-			id: String(Date.now()),
-			name: sDocName,
-			description: this._sActiveTab.charAt(0).toUpperCase() + this._sActiveTab.slice(1),
-			date: sDate,
-			type: this._sActiveTab,
-			url: sUrl
+		this._getSFModel().create("/cust_EmployeeDocument", {
+			externalCode: String(Date.now()),
+			externalName_defaultValue: sDocName,
+			cust_description: sDescription,
+			startDate: new Date().toISOString(),
+			cust_documentType: this._sActiveTab,
+			cust_documentUrl: ""
+			// Binary file upload requires the SF Document Management / ECM API
+		}, {
+			success: () => {
+				this._loadDocuments();
+				this._oUploadDialog?.close();
+				MessageToast.show(this._oBundle?.getText("uploadSuccess") ?? "Document uploaded.");
+			},
+			error: () => {
+				MessageToast.show(this._oBundle?.getText("uploadError") ?? "Upload failed.");
+			}
 		});
-
-		oDocsModel.setProperty("/documents", aDocuments);
-		this._filterDocuments();
-
-		this._oUploadDialog?.close();
-		MessageToast.show(this._oBundle?.getText("uploadSuccess") ?? "Document uploaded.");
 	}
 
 	public onUploadCancel(): void {

@@ -52,7 +52,9 @@
 					<Table
 						id="docTable"
 						items="{documents>/filteredDocuments}"
-						noDataText="{i18n>noDocuments}">
+						noDataText="{i18n>noDocuments}"
+						busy="{documents>/busy}"
+						busyIndicatorDelay="0">
 						<columns>
 							<Column hAlign="Begin">
 								<Text text="{i18n>colDocName}" />

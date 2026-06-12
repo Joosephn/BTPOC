@@ -13,6 +13,15 @@
 		"sourceTemplate": {
 			"id": "@ui5/mcp-server:ts",
 			"version": "0.2.12"
+		},
+		"dataSources": {
+			"SFSF_MDF": {
+				"uri": "/sfsf/odata/v2/",
+				"type": "OData",
+				"settings": {
+					"odataVersion": "2.0"
+				}
+			}
 		}
 	},
 
@@ -70,6 +79,14 @@
 				"settings": {
 					"bundleName": "btpoc.i18n.i18n",
 					"async": true
+				}
+			},
+			"sfsf": {
+				"dataSource": "SFSF_MDF",
+				"type": "sap.ui.model.odata.v2.ODataModel",
+				"settings": {
+					"useBatch": false,
+					"defaultUpdateMethod": "MERGE"
 				}
 			}
 		},

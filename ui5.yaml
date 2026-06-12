@@ -22,3 +22,9 @@ server:
       afterMiddleware: compression
     - name: ui5-middleware-livereload
       afterMiddleware: compression
+    - name: ui5-middleware-simpleproxy
+      afterMiddleware: compression
+      configuration:
+        mountPath: /sfsf
+        # TODO: Replace with your SuccessFactors API hostname (e.g. https://api10.successfactors.com)
+        baseUri: https://YOUR_SF_HOST
