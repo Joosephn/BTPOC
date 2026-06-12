@@ -1,0 +1,60 @@
+{
+  "xsappname": "btpoc",
+  "tenant-mode": "dedicated",
+  "description": "IAG Employee Document App - XSUAA configuration",
+
+  "scopes": [
+    {
+      "name": "$XSAPPNAME.DocumentView",
+      "description": "View own employee documents (payslips, contracts, myFlex)"
+    },
+    {
+      "name": "$XSAPPNAME.DocumentUpload",
+      "description": "Upload documents on behalf of employees (HR use)"
+    }
+  ],
+
+  "role-templates": [
+    {
+      "name": "Employee",
+      "description": "Standard employee — read-only access to own documents",
+      "scope-references": [
+        "$XSAPPNAME.DocumentView"
+      ]
+    },
+    {
+      "name": "HRAdmin",
+      "description": "HR Administrator — can view and upload documents",
+      "scope-references": [
+        "$XSAPPNAME.DocumentView",
+        "$XSAPPNAME.DocumentUpload"
+      ]
+    }
+  ],
+
+  "role-collections": [
+    {
+      "name": "BTPOC_Employee",
+      "description": "Assign to all employees who should access their documents",
+      "role-template-references": [
+        "$XSAPPNAME.Employee"
+      ]
+    },
+    {
+      "name": "BTPOC_HRAdmin",
+      "description": "Assign to HR team members who manage documents",
+      "role-template-references": [
+        "$XSAPPNAME.HRAdmin"
+      ]
+    }
+  ],
+
+  "oauth2-configuration": {
+    "token-validity": 3600,
+    "refresh-token-validity": 86400,
+    "redirect-uris": [
+      "https://*.hana.ondemand.com/**",
+      "https://*.cfapps.*.hana.ondemand.com/**"
+    ]
+  }
+}

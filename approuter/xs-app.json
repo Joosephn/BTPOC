@@ -1,0 +1,19 @@
+{
+  "welcomeFile": "/index.html",
+  "authenticationMethod": "route",
+  "sessionTimeout": 30,
+  "routes": [
+    {
+      "source": "^/sfsf/(.*)",
+      "target": "/$1",
+      "destination": "SFSF",
+      "authenticationType": "xsuaa",
+      "csrfProtection": false
+    },
+    {
+      "source": "^(.*)",
+      "localDir": "dist",
+      "authenticationType": "xsuaa"
+    }
+  ]
+}

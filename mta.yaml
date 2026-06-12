@@ -1,0 +1,117 @@
+_schema-version: "3.1"
+ID: btpoc
+version: 1.0.0
+description: IAG Employee Document App - BTP Deployment
+
+parameters:
+  enable-parallel-deployments: true
+
+# ---------------------------------------------------------------------------
+# Build: compile UI5 app first, then deploy approuter + services
+# ---------------------------------------------------------------------------
+build-parameters:
+  before-all:
+    - builder: custom
+      commands:
+        - npm ci
+        - npm run build:opt   # self-contained build — bundles SAPUI5 libs into dist/
+
+modules:
+
+  # ---------------------------------------------------------------------------
+  # 1. Standalone App Router
+  #    Enforces XSUAA authentication and proxies /sfsf/* to SuccessFactors
+  # ---------------------------------------------------------------------------
+  - name: btpoc-approuter
+    type: approuter.nodejs
+    path: approuter
+    parameters:
+      memory: 128M
+      disk-quota: 512M
+    requires:
+      - name: btpoc-uaa
+      - name: btpoc-destination
+    build-parameters:
+      # Copy the UI5 self-contained build into approuter/dist so the
+      # approuter can serve it via localDir (see approuter/xs-app.json)
+      requires:
+        - name: btpoc-ui
+          artifacts:
+            - dist/**
+          target-path: dist
+
+  # ---------------------------------------------------------------------------
+  # 2. UI5 Application (build-only module — no direct deployment)
+  #    Built by the before-all step above; artefacts consumed by btpoc-approuter
+  # ---------------------------------------------------------------------------
+  - name: btpoc-ui
+    type: html5
+    path: .
+    build-parameters:
+      builder: custom
+      commands: []            # already built by before-all
+      supported-platforms: []
+      build-result: dist
+
+resources:
+
+  # ---------------------------------------------------------------------------
+  # XSUAA — OAuth2 / OpenID Connect authentication service
+  #   - Reads scopes and role templates from xs-security.json
+  #   - Issues JWT tokens; approuter validates them on every request
+  # BTP setup: created automatically on `cf deploy`; no manual action needed
+  # ---------------------------------------------------------------------------
+  - name: btpoc-uaa
+    type: org.cloudfoundry.managed-service
+    parameters:
+      service: xsuaa
+      service-plan: application
+      path: ./xs-security.json
+      config:
+        xsappname: btpoc
+        tenant-mode: dedicated
+
+  # ---------------------------------------------------------------------------
+  # Destination service — provides the SFSF destination to the approuter
+  # BTP setup: after deploy, create a destination named "SFSF" manually in
+  #   BTP Cockpit → Connectivity → Destinations (see deployment guide below)
+  # ---------------------------------------------------------------------------
+  - name: btpoc-destination
+    type: org.cloudfoundry.managed-service
+    parameters:
+      service: destination
+      service-plan: lite
+
+# ---------------------------------------------------------------------------
+# DEPLOYMENT GUIDE — what to do in BTP Cockpit after `cf deploy`
+# ---------------------------------------------------------------------------
+#
+# STEP 1 — Configure Identity Provider (IdP) trust
+#   Subaccount → Security → Trust Configuration
+#   • Add your corporate IdP (SAP IAS / Azure AD / Okta)
+#   • Map user attribute "email" and group attribute for role collection assignment
+#   • This controls WHICH users can reach the login screen at all
+#
+# STEP 2 — Create the SFSF destination
+#   Subaccount → Connectivity → Destinations → New Destination
+#   Name:            SFSF
+#   Type:            HTTP
+#   URL:             https://YOUR_SF_HOST (e.g. https://api10.successfactors.com)
+#   Authentication:  OAuth2SAMLBearerAssertion  (propagates logged-in BTP user to SF)
+#     or:            OAuth2ClientCredentials    (service account, simpler for POC)
+#   Additional props for SF:
+#     nameIdFormat:  urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress
+#     audience:      www.successfactors.com
+#     authnContextClassRef: urn:oasis:names:tc:SAML:2.0:ac:classes:PreviousSession
+#
+# STEP 3 — Assign role collections to users/groups
+#   Subaccount → Security → Role Collections
+#   BTPOC_Employee  → assign to employee users or IdP group
+#   BTPOC_HRAdmin   → assign to HR team users or IdP group
+#   Users with NO role collection assigned will authenticate but get a 403
+#
+# STEP 4 — (Optional) Enforce scope checks in the UI
+#   Add scope-based visibility to the Upload button in Main.controller.ts
+#   by reading the JWT token via sap.ui2.starterkit or a user-info endpoint
+#
+# ---------------------------------------------------------------------------
