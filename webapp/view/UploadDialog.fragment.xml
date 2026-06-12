@@ -1,0 +1,54 @@
+<core:FragmentDefinition
+	xmlns="sap.m"
+	xmlns:core="sap.ui.core"
+	xmlns:u="sap.ui.unified">
+
+	<Dialog
+		id="uploadDialog"
+		title="{i18n>uploadDialogTitle}"
+		contentWidth="28rem"
+		draggable="true">
+
+		<content>
+			<VBox class="sapUiSmallMargin sapUiSmallMarginBottom">
+				<Label
+					text="{i18n>uploadDocNameLabel}"
+					required="true"
+					labelFor="uploadDocName"
+					class="sapUiTinyMarginBottom" />
+				<Input
+					id="uploadDocName"
+					value="{uploadDialog>/docName}"
+					valueState="{uploadDialog>/docNameState}"
+					valueStateText="{i18n>uploadValidateName}"
+					placeholder="{i18n>uploadDocNamePlaceholder}" />
+				<Label
+					text="{i18n>uploadFileLabel}"
+					required="true"
+					class="sapUiSmallMarginTop sapUiTinyMarginBottom" />
+				<u:FileUploader
+					id="fileUploader"
+					fileType="pdf"
+					mimeType="application/pdf"
+					uploadOnChange="false"
+					width="100%"
+					placeholder="{i18n>uploadFilePlaceholder}"
+					change=".onFileChange" />
+			</VBox>
+		</content>
+
+		<beginButton>
+			<Button
+				text="{i18n>btnUpload}"
+				type="Emphasized"
+				press=".onUploadConfirm" />
+		</beginButton>
+		<endButton>
+			<Button
+				text="{i18n>btnCancel}"
+				press=".onUploadCancel" />
+		</endButton>
+
+	</Dialog>
+
+</core:FragmentDefinition>

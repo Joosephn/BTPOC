@@ -26,6 +26,11 @@
 		}
 	},
 
+	"sap.fiori": {
+		"registrationIds": [],
+		"archeType": "transactional"
+	},
+
 	"sap.ui5": {
 		"rootView": {
 			"viewName": "btpoc.view.App",
@@ -37,11 +42,20 @@
 			"minUI5Version": "1.148.1",
 			"libs": {
 				"sap.ui.core": {},
-				"sap.m": {}
+				"sap.m": {},
+				"sap.ui.unified": {}
 			}
 		},
 
-		"flexEnabled": false,
+		"resources": {
+			"css": [
+				{
+					"uri": "css/style.css"
+				}
+			]
+		},
+
+		"flexEnabled": true,
 
 		"handleValidation": true,
 

@@ -1,0 +1,29 @@
+/* SAP Horizon theme CSS variable overrides (public theming API) */
+:root {
+    --sapTab_ForegroundColor: #6f42c1;
+    --sapTab_IconColor: #6f42c1;
+    --sapTab_Selected_IconColor: #ffffff;
+    --sapTab_Selected_Background: #6f42c1;
+}
+
+/* IAG branded header bar — scope all rules under custom class, never target bare SAP internal classes */
+.iagHeaderBar {
+    background-color: #6f42c1;
+    height: 4rem;
+    min-height: 4rem;
+}
+
+.iagHeaderBar .sapMTitle,
+.iagHeaderBar .sapMText {
+    color: #ffffff;
+}
+
+.iagHeaderBar .sapMBtn .sapMBtnIcon,
+.iagHeaderBar .sapMBtn .sapMBtnInner {
+    color: #ffffff;
+}
+
+/* PDF action button in document table */
+.iagPdfButton .sapMBtnIcon {
+    color: #6f42c1;
+}

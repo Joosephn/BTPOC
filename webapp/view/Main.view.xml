@@ -2,28 +2,85 @@
 	controllerName="btpoc.controller.Main"
 	displayBlock="true"
 	xmlns="sap.m"
-	xmlns:mvc="sap.ui.core.mvc"
-	xmlns:core="sap.ui.core"
-	core:require="{
-		formatter: 'btpoc/model/formatter'
-	}">
+	xmlns:mvc="sap.ui.core.mvc">
 
-	<Page
-		title="{i18n>appTitle}"
-		id="page">
+	<Page id="page" title="{i18n>appTitle}" showHeader="false">
+		<customHeader>
+			<Bar styleClass="iagHeaderBar">
+				<contentLeft>
+					<Image
+						src="./iag-logo-670x335.png"
+						height="3rem"
+						decorative="true" />
+				</contentLeft>
+			</Bar>
+		</customHeader>
 		<content>
-			<IllustratedMessage
-				title="{i18n>appTitle}"
-				illustrationType="sapIllus-SuccessHighFive"
-				enableVerticalResponsiveness="true"
-				description="{i18n>appDescription}">
-				<additionalContent>
+			<VBox class="sapUiMediumMargin sapUiSmallMarginBottom">
+				<Title text="{i18n>welcomeTitle}" level="H1" wrapping="true" />
+				<Text text="{i18n>welcomeText}" class="sapUiSmallMarginTop" renderWhitespace="false" />
+				<HBox alignItems="Center" width="100%" class="sapUiSmallMarginTop">
+					<SearchField
+						id="searchField"
+						liveChange=".onLiveSearch"
+						search=".onSearch"
+						placeholder="{i18n>searchPlaceholder}"
+						width="100%">
+						<layoutData>
+							<FlexItemData growFactor="1" />
+						</layoutData>
+					</SearchField>
 					<Button
-						id="helloButton"
-						text="{formatter: 'formatter.formatValue', path: 'i18n>btnText'}"
-						press=".sayHello" />
-				</additionalContent>
-			</IllustratedMessage>
+						icon="sap-icon://upload"
+						text="{i18n>btnUploadDocument}"
+						type="Emphasized"
+						press=".onUploadPress"
+						class="sapUiLargeMarginBegin" />
+				</HBox>
+			</VBox>
+			<IconTabBar
+				id="docTabBar"
+				select=".onTabSelect"
+				expandable="false"
+				backgroundDesign="Transparent">
+				<items>
+					<IconTabFilter text="{i18n>tabPayslips}" key="payslip" icon="sap-icon://pay-slip" />
+					<IconTabFilter text="{i18n>tabContracts}" key="contract" icon="sap-icon://document-text" />
+					<IconTabFilter text="{i18n>tabMyFlex}" key="myflex" icon="sap-icon://curriculum" />
+				</items>
+				<content>
+					<Table
+						id="docTable"
+						items="{documents>/filteredDocuments}"
+						noDataText="{i18n>noDocuments}">
+						<columns>
+							<Column hAlign="Begin">
+								<Text text="{i18n>colDocName}" />
+							</Column>
+							<Column hAlign="Begin" minScreenWidth="Tablet" demandPopin="true">
+								<Text text="{i18n>colDate}" />
+							</Column>
+							<Column hAlign="Center" width="8rem">
+								<Text text="{i18n>colActions}" />
+							</Column>
+						</columns>
+						<items>
+							<ColumnListItem type="Active">
+								<cells>
+									<ObjectIdentifier title="{documents>name}" text="{documents>description}" />
+									<Text text="{documents>date}" />
+									<Button
+										icon="sap-icon://pdf-attachment"
+										type="Transparent"
+										press=".onOpenPDF"
+										tooltip="{i18n>btnViewPDF}"
+										styleClass="iagPdfButton" />
+								</cells>
+							</ColumnListItem>
+						</items>
+					</Table>
+				</content>
+			</IconTabBar>
 		</content>
 	</Page>
 
