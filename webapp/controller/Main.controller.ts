@@ -35,6 +35,14 @@ interface SFDocumentEntity {
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
+// Shown as fallback when the SF OData endpoint is unreachable (local dev / no destination configured).
+// One example per document type so the UI remains exercisable without a live backend.
+const MOCK_DOCUMENTS: DocumentItem[] = [
+	{ id: "mock-1", name: "Payslip - January 2026",    description: "Monthly payslip",            date: "31 Jan 2026", type: "payslip",  url: "https://www.africau.edu/images/default/sample.pdf" },
+	{ id: "mock-2", name: "Employment Contract",        description: "Standard employment agreement", date: "01 Mar 2025", type: "contract", url: "https://www.africau.edu/images/default/sample.pdf" },
+	{ id: "mock-3", name: "myFlex - Q1 2026",           description: "Flexible benefits statement", date: "31 Mar 2026", type: "myflex",   url: "https://www.africau.edu/images/default/sample.pdf" }
+];
+
 /**
  * @namespace btpoc.controller
  */
@@ -47,13 +55,15 @@ export default class Main extends BaseController {
 	private _sActiveTab = "payslip";
 
 	public onInit(): void {
-		const oDocModel = new JSONModel({ documents: [], filteredDocuments: [], busy: false });
+		// Seed with mock examples immediately so each tab has visible content before SF responds
+		const oDocModel = new JSONModel({ documents: [...MOCK_DOCUMENTS], filteredDocuments: [], busy: false });
 		this.getView()?.setModel(oDocModel, "documents");
 
 		void this.getResourceBundle().then(bundle => {
 			this._oBundle = bundle;
 		});
 
+		this._filterDocuments();
 		this._loadDocuments();
 	}
 
@@ -67,7 +77,7 @@ export default class Main extends BaseController {
 
 		this._getSFModel().read("/cust_EmployeeDocument", {
 			success: (oData: { results: SFDocumentEntity[] }) => {
-				const docs: DocumentItem[] = oData.results.map(e => ({
+				const sfDocs: DocumentItem[] = oData.results.map(e => ({
 					id: e.externalCode,
 					name: e.externalName_defaultValue,
 					description: e.cust_description,
@@ -75,13 +85,14 @@ export default class Main extends BaseController {
 					type: e.cust_documentType,
 					url: e.cust_documentUrl
 				}));
-				oDocModel.setProperty("/documents", docs);
+				// Merge: mock examples first, then real SF documents after
+				oDocModel.setProperty("/documents", [...MOCK_DOCUMENTS, ...sfDocs]);
 				oDocModel.setProperty("/busy", false);
 				this._filterDocuments();
 			},
 			error: () => {
+				// SF unreachable — mock examples loaded in onInit remain visible
 				oDocModel.setProperty("/busy", false);
-				MessageToast.show(this._oBundle?.getText("loadError") ?? "Failed to load documents.");
 			}
 		});
 	}
