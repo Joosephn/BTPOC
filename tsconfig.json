@@ -8,6 +8,7 @@
 		"strict": true,
 		"strictNullChecks": false,
 		"strictPropertyInitialization": false,
+		"noUnusedLocals": false,
 		"rootDir": "./webapp",
 		"types": ["@sapui5/types", "@types/qunit"],
 		"paths": {

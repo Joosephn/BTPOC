@@ -6,6 +6,7 @@ import Button, { Button$PressEvent } from "sap/m/Button";
 import Dialog from "sap/m/Dialog";
 import Fragment from "sap/ui/core/Fragment";
 import MessageToast from "sap/m/MessageToast";
+import MessageBox from "sap/m/MessageBox";
 import FileUploader from "sap/ui/unified/FileUploader";
 import type { FileUploader$ChangeEvent } from "sap/ui/unified/FileUploader";
 import type ResourceBundle from "sap/base/i18n/ResourceBundle";
@@ -75,8 +76,11 @@ export default class Main extends BaseController {
 		const oDocModel = this.getView()!.getModel("documents") as JSONModel;
 		oDocModel.setProperty("/busy", true);
 
-		this._getSFModel().read("/cust_EmployeeDocument", {
+		let bTimedOut = false;
+
+		const oHandle = this._getSFModel().read("/cust_EmployeeDocument", {
 			success: (oData: { results: SFDocumentEntity[] }) => {
+				clearTimeout(iTimeoutId);
 				const sfDocs: DocumentItem[] = oData.results.map(e => ({
 					id: e.externalCode,
 					name: e.externalName_defaultValue,
@@ -91,10 +95,24 @@ export default class Main extends BaseController {
 				this._filterDocuments();
 			},
 			error: () => {
-				// SF unreachable — mock examples loaded in onInit remain visible
+				clearTimeout(iTimeoutId);
+				if (bTimedOut) return; // abort() triggered this — already handled by the timeout
+				// SF unreachable for a non-timeout reason — mock examples remain visible
 				oDocModel.setProperty("/busy", false);
 			}
-		});
+		}) as { abort: () => void };
+
+		// If SF has not responded within 15 seconds, abort the request and notify the user
+		const iTimeoutId = window.setTimeout(() => {
+			bTimedOut = true;
+			oHandle.abort();
+			oDocModel.setProperty("/busy", false);
+			MessageBox.error(
+				this._oBundle?.getText("sfTimeout") ??
+				"Unable to retrieve your documents from SuccessFactors storage. Please try again later.",
+				{ title: "Connection Timeout" }
+			);
+		}, 15000);
 	}
 
 	// SF OData v2 returns DateTime as /Date(milliseconds)/
